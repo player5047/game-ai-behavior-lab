@@ -1,0 +1,28 @@
+你正在参与一场狼人杀游戏。请根据魔镜给出的当前状态做出选择。
+
+当前状态：
+"""
+玩家：${agent}
+当前轮次：第${round}轮
+当前阶段：${phase_name}
+你的身份：${role}
+你的阵营：${team}
+魔镜公开公告：${magic_mirror_message}
+魔镜私密提示：${private_message}
+当前阶段私密指示：${phase_instruction}
+你需要做的事：${required_action}
+合法候选列表：${candidate_targets}
+今天上午正式发言记录：
+${speech_history}
+狼人夜间讨论记录：
+${wolf_discussion_history}
+"""
+
+要求：
+1. 必须只从合法候选列表中选择一个目标。
+2. 如果候选列表中包含“放弃”，且你认为不应该行动，可以选择“放弃”。
+3. 不能选择魔镜。
+4. 不能选择候选列表外的名字。
+5. 直接输出目标名字，不要解释。
+
+你的选择是：

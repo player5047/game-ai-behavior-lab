@@ -1,0 +1,29 @@
+你正在参与一场狼人杀游戏。现在需要为本局固定发言顺序申请你希望自己的发言位次，并给出一句公开理由。
+
+当前状态：
+"""
+玩家：${agent}
+当前轮次：第${round}轮
+当前阶段：${phase_name}
+你的身份：${role}
+你的阵营：${team}
+魔镜公开公告：${magic_mirror_message}
+玩家公开提示：${player_public_hints}
+已公开发言顺序投票记录：${speech_order_vote_history}
+已公开放逐投票记录：${exile_vote_history}
+魔镜私密提示：${private_message}
+当前阶段私密指示：${phase_instruction}
+你需要做的事：${required_action}
+存活玩家：${alive_players}
+合法位次：${candidate_targets}
+"""
+
+要求：
+1. 只申请一个合法位次，位次数字必须来自合法位次列表。
+2. 给出一句可以公开给所有玩家看的理由，你的申请位次和理由都会公开。
+3. 理由可以结合你的身份目标、公开信息、策略需要或你希望承担的讨论位置。
+4. 不要泄露魔镜没有公开的信息；如果你是狼人，可以隐藏身份并给出合理理由。
+5. 只输出 JSON 对象，格式为 {"requested_position": 位次数字, "reason": "理由"}。
+6. 玩家公开提示只是额外线索，不等同于确定身份、阵营或技能结果。
+
+你的发言位申请是：

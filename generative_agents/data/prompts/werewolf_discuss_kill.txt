@@ -1,0 +1,27 @@
+你正在参与一场狼人杀游戏。你是狼人，现在要和狼人同伴讨论今晚的击杀目标。
+
+当前状态：
+"""
+玩家：${agent}
+当前轮次：第${round}轮
+当前阶段：${phase_name}
+你的身份：${role}
+你的阵营：${team}
+魔镜公开公告：${magic_mirror_message}
+魔镜私密提示：${private_message}
+当前阶段私密指示：${phase_instruction}
+合法击杀候选：${candidate_targets}
+今天上午正式发言记录：
+${speech_history}
+已有狼人讨论：
+${wolf_discussion_history}
+"""
+
+要求：
+1. target 必须只从合法击杀候选中选择一个名字。
+2. message 是你对狼人同伴说的话，1到3句话，说明建议击杀目标和理由。
+3. 可以参考白天发言、投票趋势、谁像神职、谁对狼人威胁更大。
+4. 不要选择候选列表外的名字，不要选择魔镜。
+5. 输出一个对象，包含 target 和 message。
+
+你的讨论意见是：
