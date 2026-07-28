@@ -1,150 +1,201 @@
-简体中文 | [English](./README_en.md)
+# Game AI Behavior Lab
 
-# 生成式智能体（Generative Agents）深度汉化版
+## 面向游戏 NPC 的行为优化与评估平台
 
-斯坦福AI小镇由斯坦福大学和谷歌于2023年8月开源，由25个智能体组成的虚拟世界，模拟了真实的人类生活。
+Game AI Behavior Lab 是一个基于大语言模型的多智能体游戏实验项目，重点研究：
 
-25个智能体完全由ChatGPT驱动，自主组织派对、参加会议、在情人节筹办各种活动。他们能够展现出与人类相似的生活模式和行为习惯。
+> 如何让游戏 NPC 在复杂社交环境中表现得更有个性、更连贯、更可控，并且能够被游戏策划量化评估？
 
-Generative Agents的原始代码工程化程度较低，难以持续维护或拓展功能，且时隔两年，中文LLM的能力早已胜任此类任务。因此，我们对原项目进行了重构+深度汉化，旨在为中文用户提供一个利于维护的基础版本，以便后续实验或尝试更多玩法。
+项目为 NPC 增加了人格背景、长期记忆、空间行动、身份权限、阶段目标和信息边界。狼人杀在本项目中只是测试场景，用于检验 NPC 在隐藏信息、阵营冲突、多人协作和动态决策条件下的行为质量。
 
-[wounderland](https://github.com/Archermmt/wounderland)项目是原[Generative Agents](https://github.com/joonspk-research/generative_agents)项目的重构版本，结构良好且代码质量远优于原版，因此本项目基于wounderland开发。
+![NPC 多智能体运行画面](docs/resources/snapshot.png)
 
-更新：
+## 项目解决的问题
 
-- 2025.06.02
-    - 增加对`Qwen3`和`DeepSeek-R1`等新模型的支持（处理输出结果中的\<think\>标签）。
-- 2026.01.15
-    - 使用`pydantic`模型取代正则表达式解析。感谢[Findworth](https://github.com/Findworth)提交的PR。
-    - 默认语言模型改为`qwen3:4b-instruct-2507`，嵌入模型改为`qwen3-embedding:0.6b`，减少显存占用，提升推理速度。
+| NPC 常见问题 | 优化方式 |
+|---|---|
+| 不同 NPC 的行为高度相似 | 使用独立人格、背景关系和行为倾向 |
+| NPC 容易遗忘此前发生的事件 | 引入事件记忆、对话记忆、关系摘要和反思 |
+| LLM 可能执行不符合规则的行为 | 使用阶段状态机、身份权限和候选目标校验 |
+| NPC 决策效果难以衡量 | 记录发言、投票、推理、误判和胜负指标 |
+| NPC 行为缺乏连续性 | 将日程、空间位置、当前状态与决策结合 |
 
-主要工作：
+## NPC 行为架构
 
-- 重写全部提示语，将智能体的“母语”切换为中文，以便对接Qwen或GLM-4等中文模型；
-- 针对中文特点和Qwen2.5/3系列模型的能力，优化中文提示语及智能体之间的对话起止逻辑；
-- 所有提示语模板化，便于后期维护；
-- 修正原版的小问题（例如wounderland原版中智能体在入睡后便不再醒来）；
-- 增加对本地Ollama API的支持，同时将LlamaIndex embedding也接入Ollama，实现完全本地部署，降低实验成本。*Ollama安装及配置可参考[ollama.md](docs/ollama.md)*；
-- 增加“断点恢复”等特性；
-- 回放界面基于原Generative Agents前端代码精简，同时将智能体活动的时间线及对话内容保存至Markdown文档。
-
-回放画面：
-
-![snapshot](docs/resources/snapshot.png)
-
-*注：地图及人物名称也同步汉化，是为了避免LLM在遇到中英混杂的上下文时，切换到英文语境。*
-
-## 1. 准备工作
-
-### 1.1 获取代码：
-
-```
-git clone https://github.com/x-glacier/GenerativeAgentsCN.git
-cd GenerativeAgentsCN
+```mermaid
+flowchart LR
+    A["人格与角色背景"] --> D["NPC 决策核心"]
+    B["记忆与关系状态"] --> D
+    C["世界状态与私密信息"] --> D
+    D --> E["计划与目标选择"]
+    D --> F["发言与社交互动"]
+    D --> G["移动与技能行动"]
+    E --> H["规则校验"]
+    F --> H
+    G --> H
+    H --> I["行为记录与评估"]
+    I --> B
 ```
 
-### 1.2 配置大语言模型（LLM）
+一次完整的 NPC 决策包含：
 
-修改配置文件 `generative_agents/data/config.json`:
-1. 默认使用[Ollama](https://ollama.com/)加载本地量化模型，并提供OpenAI兼容API。需要先拉取量化模型（参考[ollama.md](docs/ollama.md)），并确保`base_url`和`model`与Ollama中的配置一致。
-2. 如果希望调用其他OpenAI兼容API，需要将`provider`改为`openai`，并根据API文档修改`model`、`api_key`和`base_url`。
+1. 读取身份、阵营、人格和关系倾向。
+2. 检索近期事件、历史对话和关键记忆。
+3. 获取当前时间、位置、阶段和合法候选目标。
+4. 根据角色目标生成行动或语言。
+5. 通过程序规则检查行动是否合法。
+6. 将结果写入记录，用于后续决策和实验分析。
 
-### 1.3 安装python依赖
+## NPC 行为优化
 
-建议先使用anaconda3创建并激活虚拟环境：
+### 人格与行为差异
 
+NPC 人格不是一句静态人设，而是持续影响判断方式的行为条件。
+
+当前包含三种主要原型：
+
+- **强硬型**：更坚持已有立场，对特定群体保持较高警惕。
+- **摇摆型**：容易受到局势和信息来源影响。
+- **桥梁型**：倾向反对群体标签，把讨论引导回个人行为和证据。
+
+人格会影响 NPC 的注意重点、语言风格、信任关系和目标选择，但不会直接指定行动结果。
+
+### 记忆与行为连续性
+
+NPC 可以记录和使用：
+
+- 近期感知与公共事件；
+- 历史对话和关系变化；
+- 投票、死亡和身份信息；
+- 当前日程、位置与行动；
+- 对重要事件形成的反思结论。
+
+这些信息会进入后续决策，减少 NPC 失忆、重复发言和立场无理由变化等问题。
+
+### 身份驱动的阶段决策
+
+系统将复杂游戏流程拆分为多个阶段：
+
+- 夜间行动；
+- 信息公布；
+- 发言顺序协商；
+- 顺序发言；
+- 投票；
+- 技能结算；
+- 胜负判断。
+
+NPC 只会获得符合自身身份的信息和合法行动范围。程序负责规则，LLM 负责表演、推理与选择。
+
+### 行为记录与评估
+
+项目会记录：
+
+- NPC 发言内容和发言顺序；
+- 投票选择与票型；
+- 技能目标和行动结果；
+- 角色死亡原因；
+- 同群体防御和跨群体指控；
+- 证据推理和群体标签的使用；
+- 好人误放逐与狼人被放逐次数；
+- 最终胜负和结束回合。
+
+## A/B/C 对照实验
+
+实验保持人物档案、角色计划和游戏规则一致，只改变 NPC 接收到的信息条件。
+
+| 实验组 | 信息环境 | 设计目的 |
+|---|---|---|
+| A | 无额外干预 | 观察 NPC 的自然决策基线 |
+| B | 分裂导向信息 | 观察偏见和群体标签是否放大错误判断 |
+| C | 协作与证据导向信息 | 观察 NPC 是否更愿意依据行为证据修正判断 |
+
+完整 A/B/C 对照实验的真实汇总：
+
+| 实验组 | 好人阵营胜场 | 有效局数 | 汇总胜率 |
+|---|---:|---:|---:|
+| A | 5 | 22 | 22.7% |
+| B | 6 | 20 | 30.0% |
+| C | 7 | 21 | 33.3% |
+
+实验结果表明，不同信息环境会让 NPC 群体产生可观察的决策差异。
+
+由于各组有效完成局数不同，当前数据主要用于展示行为趋势和评估系统，不作为严格的因果结论。
+
+## 运行画面
+
+<p align="center">
+  <img src="docs/resources/snapshot1.gif" width="49%" alt="NPC 在虚拟世界中的活动">
+  <img src="docs/resources/snapshot2.gif" width="49%" alt="NPC 在公共空间中的互动">
+</p>
+
+<p align="center">
+  <img src="docs/resources/snapshot3.gif" width="49%" alt="NPC 在室内场景中的社交行为">
+  <img src="docs/resources/snapshot4.gif" width="49%" alt="NPC 的空间行动">
+</p>
+
+## 主要代码
+
+```text
+generative_agents/
+├─ modules/
+│  ├─ agent.py                 # NPC 感知、计划、行动和反思
+│  ├─ magic_mirror.py          # 阶段状态机、身份权限和规则裁决
+│  ├─ werewolf_recorder.py     # 逐局、逐轮行为记录
+│  ├─ fyp_stats.py             # NPC 行为指标和实验汇总
+│  ├─ memory/                  # 记忆、日程和空间认知
+│  └─ prompt/                  # NPC 决策提示模板
+├─ data/
+│  ├─ role_plans/              # 固定角色计划
+│  └─ prompts/                 # 发言和目标选择模板
+├─ frontend/                   # 地图与回放界面
+├─ start.py                    # 单次模拟入口
+└─ run_mirror_experiments.py   # A/B/C 批量实验入口
 ```
-conda create -n generative_agents_cn python=3.12
-conda activate generative_agents_cn
+
+## 快速开始
+
+1. 使用 Python 3.12 创建环境。
+2. 执行 `pip install -r requirements.txt` 安装依赖。
+3. 在 `generative_agents/data/config.json` 配置语言模型。
+4. 进入 `generative_agents` 目录。
+5. 执行：
+
+```bash
+python start.py --name npc-demo --start "20250213-09:30" --step 700 --stride 10 --mirror unity
 ```
 
-安装依赖：
+运行 A/B/C 实验：
 
-```
-pip install -r requirements.txt
-```
-
-## 2. 运行虚拟小镇
-
-```
-cd generative_agents
-python start.py --name sim-test --start "20250213-09:30" --step 10 --stride 10
+```bash
+python run_mirror_experiments.py --base npc-eval-01 --lineage-mode two
 ```
 
-参数说明:
-- `name` - 每次启动虚拟小镇，需要设定唯一的名称，用于事后回放。
-- `start` - 虚拟小镇的起始时间。
-- `resume` - 在运行结束或意外中断后，从上次的“断点”处，继续运行虚拟小镇。
-- `step` - 在迭代多少步之后停止运行。
-- `stride` - 每一步迭代在虚拟小镇中对应的时间（分钟）。假如设定`--stride 10`，虚拟小镇在迭代过程中的时间变化将会是 9:00，9:10，9:20 ...
+启动回放：
 
-## 3. 回放
-
-### 3.1 生成回放数据
-
-```
-python compress.py --name sim-test
-```
-
-运行结束后将在`results/compressed/sim-test`目录下生成回放数据文件`movement.json`。同时还将生成`simulation.md`，以时间线方式呈现每个智能体的状态及对话内容。
-
-### 3.2 启动回放服务
-
-```
+```bash
+python compress.py --name npc-demo
 python replay.py
 ```
 
-通过浏览器打开回放页面（地址：`http://127.0.0.1:5000/?name=sim-test` ），可以看到虚拟小镇中的居民在各个时间段的活动。
+实验结果保存在本地 `generative_agents/results/`，不会上传至公开仓库。
 
-*只能通过键盘方向键移动画面*
+## 后续计划
 
-参数说明  
-- `name` - 启动虚拟小镇时设定的名称。
-- `step` - 回放的起始步数，0代表从第一帧开始回放，预设值为0。
-- `speed` - 回放速度（0-5），0最慢，5最快，预设值为2。
-- `zoom` - 画面缩放比例，预设值为0.8。
+- 为所有实验加入统一随机种子。
+- 补齐 A/B/C 等量有效局数。
+- 增加情绪变化和关系网络可视化。
+- 将词表统计升级为语义行为分类。
+- 增加自动化 NPC 行为回归测试。
+- 将行为系统应用到开放世界居民、阵营任务和互动叙事场景。
 
-发布版本中内置了名为`example`的回放数据（由qwen2.5:32b-instruct-q4_K_M生成）。若希望以较快速度从头开始回放，画面缩放比例为0.6，则对应的url是：
-http://127.0.0.1:5000/?name=example&step=0&speed=2&zoom=0.6
+## 项目来源
 
-也可直接打开[simulation.md](generative_agents/results/compressed/example/simulation.md)，查看`example`中所有人物活动和对话信息。
+本项目基于以下开源工作继续开发：
 
-### 3.3 回放截图
+- [Generative Agents](https://github.com/joonspk-research/generative_agents)
+- [wounderland](https://github.com/Archermmt/wounderland)
+- [GenerativeAgentsCN](https://github.com/x-glacier/GenerativeAgentsCN)
 
-*画面中对话内容由qwen2.5:14b-instruct-q4_K_M生成*
+基础项目提供虚拟小镇、生成式智能体和回放能力。本项目重点扩展游戏 NPC 的身份规则、人格条件、阶段行为、信息干预、批量实验和行为评估系统。
 
-小镇全景
-
-![小镇全景](docs/resources/snapshot1.gif)
-
-公园
-
-![公园](docs/resources/snapshot2.gif)
-
-咖啡馆
-
-![咖啡馆](docs/resources/snapshot3.gif)
-
-教室
-
-![教室](docs/resources/snapshot4.gif)
-
-## 4. 修改地图
-
-由于wounderland项目原作者没有提供maze.json的生成代码，所以想要创建新地图，有以下几种方案：
-
-1. 参考原始generative_agents项目中maze.py的逻辑，修改现有代码，以便兼容tiled编辑器导出的json和csv数据文件；
-2. 参考现有的maze.json格式，编写代码用于合并tiled编辑器导出的maze_meta_info.json、collision_maze.csv、sector_maze.csv等文件，为新地图生成maze.json。
-3. `jiejieje`已为本项目开发了一款地图标注工具，项目地址：https://github.com/jiejieje/tiled_to_maze.json
-
-## 5. 参考资料
-
-### 5.1 论文
-
-[Generative Agents: Interactive Simulacra of Human Behavior](https://arxiv.org/abs/2304.03442)
-
-### 5.2 代码
-
-[Generative Agents](https://github.com/joonspk-research/generative_agents)
-
-[wounderland](https://github.com/Archermmt/wounderland)
+授权信息见 [LICENSE](LICENSE)。
